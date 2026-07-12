@@ -1,0 +1,40 @@
+---
+description: Mini Agent Harness 的项目定位、架构原则和技术约束
+alwaysApply: true
+---
+
+# Mini Agent Harness 项目规则
+
+当前项目是一个从零实现的 Mini Agent Harness。
+
+项目目标不仅是实现功能，还要按照真实软件团队中的工程化方式开发，使代码具备可维护性、可扩展性、可测试性和可观测性。
+
+## 项目原则
+
+- 项目必须采用工程化目录结构，不能写成一次性脚本或 Notebook。
+- 模块应具有清晰的职责边界。
+- 配置、日志、网络请求、工具执行和核心 Agent 逻辑必须分离。
+- 核心逻辑应尽量与具体模型供应商和框架解耦。
+- 后续增加模型、工具和 Agent 能力时，不应大幅修改已有核心模块。
+- 所有外部输入都必须进行验证。
+- 网络、文件和工具执行等不可靠操作必须考虑失败路径。
+- 不得在代码中硬编码 API Key、URL、超时和环境相关配置。
+- 工程化不等于复杂化，避免没有实际需求的抽象和设计模式。
+
+## 当前技术规范
+
+默认使用：
+
+- Python
+- `pyproject.toml`
+- `src/` layout
+- `pytest`
+- `ruff`
+- `mypy`
+- `pydantic-settings`
+- Python logging 或结构化日志
+- `.env.example`
+
+除非当前任务确实需要，不要增加新的第三方依赖。
+
+当前阶段不要使用 LangChain 或 LangGraph 隐藏 Agent Loop、Tool Calling、Context Management 等核心机制。
