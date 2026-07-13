@@ -19,6 +19,7 @@ from mini_agent.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+
 class DeepSeekClient:
     def __init__(
         self,
@@ -62,9 +63,10 @@ class DeepSeekClient:
             "model": self._model,
             "messages": [
                 # API expects "user", not MessageRole.USER
-                {"role": m.role.value, "content": m.content} for m in messages 
+                {"role": m.role.value, "content": m.content}
+                for m in messages
             ],
-            "stream": False, # Non-streaming
+            "stream": False,  # Non-streaming
         }
 
         logger.info("LLM request started model=%s", self._model)
@@ -72,7 +74,7 @@ class DeepSeekClient:
 
         try:
             response = self._http_client.post(url, headers=headers, json=body)
-        except httpx.TimeoutException as exc: # subclass of HTTPError; catch first
+        except httpx.TimeoutException as exc:  # subclass of HTTPError; catch first
             raise ModelRequestError("Request timeout") from exc
         except httpx.HTTPError as exc:
             raise ModelRequestError("Network error") from exc

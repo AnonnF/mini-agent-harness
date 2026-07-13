@@ -18,6 +18,10 @@ def _make_client(handler) -> DeepSeekClient:
     )
 
 
+def _user_message(content: str = "Hi") -> Message:
+    return Message(role=MessageRole.USER, content=content)
+
+
 def test_complete_success() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer test-key"
@@ -67,3 +71,53 @@ def test_api_key_not_in_error_message() -> None:
     with pytest.raises(ModelRequestError) as exc_info:
         client.complete([Message(role=MessageRole.USER, content="Hi")])
     assert secret not in str(exc_info.value)
+
+
+def test_complete_429_raises() -> None:
+    client = _make_client(lambda r: httpx.Response(429, json={"error": "rate limit"}))
+    with pytest.raises(ModelRequestError, match="Rate limited"):
+        client.complete([_user_message()])
+
+
+def test_complete_500_raises() -> None:
+    client = _make_client(lambda r: httpx.Response(500, json={"error": "internal"}))
+    with pytest.raises(ModelRequestError, match="Server error"):
+        client.complete([_user_message()])
+
+
+def test_complete_timeout_raises() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    client = _make_client(handler)
+    with pytest.raises(ModelRequestError, match="(?i)timeout"):
+        client.complete([_user_message()])
+
+
+def test_complete_connection_error_raises() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection failed", request=request)
+
+    client = _make_client(handler)
+    with pytest.raises(ModelRequestError, match="Network error"):
+        client.complete([_user_message()])
+
+
+def test_complete_invalid_json_raises() -> None:
+    client = _make_client(lambda r: httpx.Response(200, content=b"not-json"))
+    with pytest.raises(ModelRequestError, match="Invalid JSON"):
+        client.complete([_user_message()])
+
+
+def test_complete_missing_content_raises() -> None:
+    client = _make_client(
+        lambda r: httpx.Response(200, json={"choices": [{"message": {}}]})
+    )
+    with pytest.raises(ModelRequestError, match="Invalid response format"):
+        client.complete([_user_message()])
+
+
+def test_complete_other_4xx_raises() -> None:
+    client = _make_client(lambda r: httpx.Response(400, json={"error": "bad request"}))
+    with pytest.raises(ModelRequestError, match="status 400"):
+        client.complete([_user_message()])
