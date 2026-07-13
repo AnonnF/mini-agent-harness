@@ -1,4 +1,7 @@
+from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from mini_agent.exceptions import ConfigurationError
 
 
 class Settings(BaseSettings):
@@ -16,4 +19,9 @@ class Settings(BaseSettings):
 
 
 def load_settings() -> Settings:
-    return Settings()
+    try:
+        return Settings()
+    except ValidationError as exc:
+        raise ConfigurationError(
+            "Invalid or missing configuration. Check required environment variables."
+        ) from exc

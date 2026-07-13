@@ -42,3 +42,7 @@ strict = false
 disallow_untyped_defs = true
 check_untyped_defs = true
 plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_typed = true
+init_forbid_extra = true
