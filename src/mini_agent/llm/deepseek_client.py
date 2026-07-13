@@ -46,8 +46,8 @@ class DeepSeekClient:
 
     @classmethod
     def from_settings(
-        cls, 
-        settings: Settings, 
+        cls,
+        settings: Settings,
         http_client: httpx.Client | None = None,
         async_http_client: httpx.AsyncClient | None = None,
     ) -> DeepSeekClient:
@@ -59,15 +59,14 @@ class DeepSeekClient:
             http_client=http_client,
             async_http_client=async_http_client,
         )
-    
+
     def _build_request_body(
         self, messages: Sequence[Message], stream: bool
     ) -> dict[str, object]:
         return {
             "model": self._model,
             "messages": [
-                {"role": m.role.value, "content": m.content}
-                for m in messages
+                {"role": m.role.value, "content": m.content} for m in messages
             ],
             "stream": stream,
         }
@@ -166,7 +165,7 @@ class DeepSeekClient:
             "Content-Type": "application/json",
         }
         body = self._build_request_body(messages=messages, stream=True)
-        
+
         try:
             logger.info("LLM stream started model=%s", self._model)
             start = time.perf_counter()
@@ -208,7 +207,7 @@ class DeepSeekClient:
                     raise ModelRequestError(
                         f"Request failed with status {response.status_code}"
                     )
-                
+
                 async for line in response.aiter_lines():
                     chunk = parse_sse_line(line)
                     if chunk is not None:

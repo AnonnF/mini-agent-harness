@@ -24,11 +24,12 @@ def parse_sse_line(line: str) -> StreamChunk | None:
     chunk, _is_done = parse_data_payload(payload=payload)
     return chunk
 
+
 def parse_data_payload(payload: str) -> tuple[StreamChunk | None, bool]:
     """Returns (chunk, is_done). is_done=True means stream finished."""
     if payload == "[DONE]":
         return None, True
-    
+
     try:
         data = json.loads(payload)
     except json.JSONDecodeError as exc:
@@ -39,10 +40,10 @@ def parse_data_payload(payload: str) -> tuple[StreamChunk | None, bool]:
         content = delta.get("content", "")
     except (KeyError, IndexError, TypeError) as exc:
         raise ModelRequestError("Invalid stream event format") from exc
-    
+
     if content is None:
         content = ""
     if not isinstance(content, str):
         raise ModelRequestError("Invalid stream event format")
-    
+
     return StreamChunk(content=content), False

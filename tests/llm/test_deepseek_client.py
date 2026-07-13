@@ -122,6 +122,7 @@ def test_complete_other_4xx_raises() -> None:
     with pytest.raises(ModelRequestError, match="status 400"):
         client.complete([_user_message()])
 
+
 @pytest.mark.anyio
 async def test_stream_success() -> None:
     sse = (
@@ -129,8 +130,10 @@ async def test_stream_success() -> None:
         'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n'
         "data: [DONE]\n\n"
     )
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=sse)
+
     transport = httpx.MockTransport(handler)
     client = DeepSeekClient(
         api_key="test-key",
