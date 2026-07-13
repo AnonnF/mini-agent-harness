@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from mini_agent.config import Settings
 from mini_agent.exceptions import ModelRequestError
 from mini_agent.llm.models import ChatResponse, Message, StreamChunk, Usage
+from mini_agent.llm.stream_parser import parse_sse_line
 from mini_agent.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -29,6 +30,7 @@ class DeepSeekClient:
         model: str,
         timeout: float,
         http_client: httpx.Client | None = None,
+        async_http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url
@@ -37,10 +39,17 @@ class DeepSeekClient:
         # Tests inject a MockTransport client; only self-created clients are closed.
         self._owns_client = http_client is None
         self._http_client = http_client or httpx.Client(timeout=timeout)
+        self._owns_async_client = async_http_client is None
+        self._async_http_client = async_http_client or httpx.AsyncClient(
+            timeout=timeout
+        )
 
     @classmethod
     def from_settings(
-        cls, settings: Settings, http_client: httpx.Client | None = None
+        cls, 
+        settings: Settings, 
+        http_client: httpx.Client | None = None,
+        async_http_client: httpx.AsyncClient | None = None,
     ) -> DeepSeekClient:
         return cls(
             api_key=settings.deepseek_api_key,
@@ -48,7 +57,20 @@ class DeepSeekClient:
             model=settings.deepseek_model,
             timeout=settings.request_timeout,
             http_client=http_client,
+            async_http_client=async_http_client,
         )
+    
+    def _build_request_body(
+        self, messages: Sequence[Message], stream: bool
+    ) -> dict[str, object]:
+        return {
+            "model": self._model,
+            "messages": [
+                {"role": m.role.value, "content": m.content}
+                for m in messages
+            ],
+            "stream": stream,
+        }
 
     def complete(self, messages: Sequence[Message]) -> ChatResponse:
         if not messages:
@@ -59,15 +81,7 @@ class DeepSeekClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        body = {
-            "model": self._model,
-            "messages": [
-                # API expects "user", not MessageRole.USER
-                {"role": m.role.value, "content": m.content}
-                for m in messages
-            ],
-            "stream": False,  # Non-streaming
-        }
+        body = self._build_request_body(messages=messages, stream=False)
 
         logger.info("LLM request started model=%s", self._model)
         start = time.perf_counter()
@@ -143,8 +157,71 @@ class DeepSeekClient:
         return ChatResponse(content=content, usage=usage)
 
     async def stream(self, messages: Sequence[Message]) -> AsyncIterator[StreamChunk]:
-        raise NotImplementedError("Streaming will be implemented in Task 3")
+        if not messages:
+            raise ModelRequestError("message must not be empty!")
+
+        url = f"{self._base_url.rstrip('/')}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        body = self._build_request_body(messages=messages, stream=True)
+        
+        try:
+            logger.info("LLM stream started model=%s", self._model)
+            start = time.perf_counter()
+            async with self._async_http_client.stream(
+                "POST", url, headers=headers, json=body
+            ) as response:
+                elapsed = time.perf_counter() - start
+                if response.status_code == 401:
+                    logger.warning(
+                        "LLM request failed model=%s status=%s elapsed=%.3fs",
+                        self._model,
+                        response.status_code,
+                        elapsed,
+                    )
+                    raise ModelRequestError("Authentication failed")
+                elif response.status_code == 429:
+                    logger.warning(
+                        "LLM request failed model=%s status=%s elapsed=%.3fs",
+                        self._model,
+                        response.status_code,
+                        elapsed,
+                    )
+                    raise ModelRequestError("Rate limited")
+                elif 500 <= response.status_code < 600:
+                    logger.warning(
+                        "LLM request failed model=%s status=%s elapsed=%.3fs",
+                        self._model,
+                        response.status_code,
+                        elapsed,
+                    )
+                    raise ModelRequestError("Server error")
+                elif not response.is_success:
+                    logger.warning(
+                        "LLM request failed model=%s status=%s elapsed=%.3fs",
+                        self._model,
+                        response.status_code,
+                        elapsed,
+                    )
+                    raise ModelRequestError(
+                        f"Request failed with status {response.status_code}"
+                    )
+                
+                async for line in response.aiter_lines():
+                    chunk = parse_sse_line(line)
+                    if chunk is not None:
+                        yield chunk
+        except httpx.TimeoutException as exc:
+            raise ModelRequestError("Request timeout") from exc
+        except httpx.HTTPError as exc:
+            raise ModelRequestError("Network error") from exc
 
     def close(self) -> None:
         if self._owns_client:
             self._http_client.close()
+
+    async def aclose(self) -> None:
+        if self._owns_async_client:
+            await self._async_http_client.aclose()

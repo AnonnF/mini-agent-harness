@@ -121,3 +121,25 @@ def test_complete_other_4xx_raises() -> None:
     client = _make_client(lambda r: httpx.Response(400, json={"error": "bad request"}))
     with pytest.raises(ModelRequestError, match="status 400"):
         client.complete([_user_message()])
+
+@pytest.mark.anyio
+async def test_stream_success() -> None:
+    sse = (
+        'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n'
+        'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=sse)
+    transport = httpx.MockTransport(handler)
+    client = DeepSeekClient(
+        api_key="test-key",
+        base_url="https://api.deepseek.com",
+        model="deepseek-chat",
+        timeout=5.0,
+        async_http_client=httpx.AsyncClient(transport=transport),
+    )
+    chunks = []
+    async for chunk in client.stream([_user_message()]):
+        chunks.append(chunk.content)
+    assert chunks == ["Hel", "lo"]
