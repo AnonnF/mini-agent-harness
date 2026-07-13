@@ -9,5 +9,6 @@ def main() -> None:
     logger = get_logger(__name__)
     logger.info("Mini Agent Harness %s started", mini_agent.__version__)
 
+
 if __name__ == "__main__":
     main()
