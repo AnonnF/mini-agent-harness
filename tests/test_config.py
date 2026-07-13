@@ -41,7 +41,7 @@ def test_load_settings_uses_defaults(isolated_env) -> None:
     isolated_env.setenv("DEEPSEEK_API_KEY", "test-key")
     settings = load_settings()
     assert settings.deepseek_base_url == "https://api.deepseek.com"
-    assert settings.deepseek_model == "deepseek-chat"
+    assert settings.deepseek_model == "deepseek-v4-flash"
     assert settings.request_timeout == 30.0
     assert settings.max_agent_steps == 10
 
