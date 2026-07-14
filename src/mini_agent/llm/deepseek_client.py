@@ -31,6 +31,7 @@ class DeepSeekClient:
         timeout: float,
         http_client: httpx.Client | None = None,
         async_http_client: httpx.AsyncClient | None = None,
+        max_retries: int = 2,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url
@@ -43,6 +44,7 @@ class DeepSeekClient:
         self._async_http_client = async_http_client or httpx.AsyncClient(
             timeout=timeout
         )
+        self._max_retries = max_retries
 
     @classmethod
     def from_settings(
@@ -71,7 +73,17 @@ class DeepSeekClient:
             "stream": stream,
         }
 
-    def complete(self, messages: Sequence[Message]) -> ChatResponse:
+    def _is_retryable(self, exc: ModelRequestError) -> bool:
+        msg = str(exc)
+        # allow error messages of 5xx, 429, connection problem
+        return msg in {
+            "Request timeout",
+            "Network error",
+            "Rate limited",
+            "Server error",
+        }
+
+    def _complete_once(self, messages: Sequence[Message]) -> ChatResponse:
         if not messages:
             raise ModelRequestError("message must not be empty!")
 
@@ -154,6 +166,28 @@ class DeepSeekClient:
         )
 
         return ChatResponse(content=content, usage=usage)
+
+    def complete(self, messages: Sequence[Message]) -> ChatResponse:
+        last_error: ModelRequestError | None = None
+
+        for attempt in range(self._max_retries + 1):
+            try:
+                return self._complete_once(messages)
+            except ModelRequestError as exc:
+                if not self._is_retryable(exc) or attempt >= self._max_retries:
+                    raise
+                last_error = exc
+                logger.warning(
+                    "LLM request retry attempt=%s/%s model=%s reason=%s",
+                    attempt + 1,
+                    self._max_retries,
+                    self._model,
+                    str(exc),
+                )
+                time.sleep(0)
+
+        assert last_error is not None
+        raise last_error
 
     async def stream(self, messages: Sequence[Message]) -> AsyncIterator[StreamChunk]:
         if not messages:

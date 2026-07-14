@@ -6,7 +6,7 @@ from mini_agent.llm.deepseek_client import DeepSeekClient
 from mini_agent.llm.models import Message, MessageRole
 
 
-def _make_client(handler) -> DeepSeekClient:
+def _make_client(handler, *, max_retries: int = 2) -> DeepSeekClient:
     transport = httpx.MockTransport(handler)
     http_client = httpx.Client(transport=transport)
     return DeepSeekClient(
@@ -15,6 +15,7 @@ def _make_client(handler) -> DeepSeekClient:
         model="deepseek-chat",
         timeout=5.0,
         http_client=http_client,
+        max_retries=max_retries,
     )
 
 
@@ -146,3 +147,67 @@ async def test_stream_success() -> None:
     async for chunk in client.stream([_user_message()]):
         chunks.append(chunk.content)
     assert chunks == ["Hel", "lo"]
+
+
+def test_complete_retries_on_500_then_succeeds() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(500, json={"error": "x"})
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+                "usage": None,
+            },
+        )
+
+    client = _make_client(handler)
+    resp = client.complete([_user_message()])
+    assert resp.content == "ok"
+    assert calls["n"] == 2
+
+
+def test_complete_401_does_not_retry() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(401, json={"error": "invalid key"})
+
+    client = _make_client(handler=handler)
+
+    with pytest.raises(ModelRequestError, match="Authentication"):
+        client.complete([_user_message()])
+
+    assert calls["n"] == 1
+
+
+def test_complete_exhausts_retries_on_500() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(500, json={"error": "internal"})
+
+    client = _make_client(handler, max_retries=2)
+    with pytest.raises(ModelRequestError, match="Server error"):
+        client.complete([_user_message()])
+
+    assert calls["n"] == 3  # 1 次首次 + 2 次重试
+
+
+def test_complete_max_retries_zero_does_not_retry() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(500, json={"error": "internal"})
+
+    client = _make_client(handler, max_retries=0)
+    with pytest.raises(ModelRequestError, match="Server error"):
+        client.complete([_user_message()])
+
+    assert calls["n"] == 1  # 不允许重试：第一次失败即停
