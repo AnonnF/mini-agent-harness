@@ -92,18 +92,20 @@ LLM Client 不应负责：
     └── mini_agent/
         ├── config.py
         ├── exceptions.py
-        ├── logger.py
+        ├── logging_config.py
         ├── main.py
         └── llm/
             ├── __init__.py
             ├── base.py
             ├── models.py
-            └── deepseek_client.py
+            ├── deepseek_client.py
+            └── stream_parser.py
 
     tests/
     ├── test_config.py
     └── llm/
         ├── __init__.py
+        ├── test_models.py
         ├── test_deepseek_client.py
         └── test_stream_parser.py
 
@@ -115,7 +117,11 @@ LLM Client 不应负责：
 
 # Task 1：定义 LLM 层的职责和数据模型
 
-状态：未开始
+状态：已完成
+
+对应 Commit：`e8ee5e4` feat: define llm client contracts and models
+
+落地文件：`src/mini_agent/llm/models.py`、`base.py`；`tests/llm/test_models.py`
 
 ## 目标
 
@@ -200,7 +206,11 @@ LLM Client 不应负责：
 
 # Task 2：实现非流式模型请求
 
-状态：未开始
+状态：已完成
+
+对应 Commit：`7244f46` feat: implement non-streaming deepseek client；`1db34fe` test: expand deepseek client error path coverage
+
+落地文件：`src/mini_agent/llm/deepseek_client.py`（`complete` / `_complete_once`）；`tests/llm/test_deepseek_client.py`
 
 ## 目标
 
@@ -330,7 +340,11 @@ LLM Client 不应负责：
 
 # Task 3：实现流式响应与 SSE 解析
 
-状态：未开始
+状态：已完成
+
+对应 Commit：`05615bf` feat: add SSE stream parser and async deepseek streaming；`f71d0c4` 中补充 `test_stream_parser.py`
+
+落地文件：`src/mini_agent/llm/stream_parser.py`、`deepseek_client.py`（`stream`）；`tests/llm/test_stream_parser.py`、流式用例在 `test_deepseek_client.py`
 
 ## 目标
 
@@ -436,7 +450,11 @@ LLM Client 不应负责：
 
 # Task 4：超时、错误映射与有限重试
 
-状态：未开始
+状态：已完成（有已知差异，见第 8 节）
+
+对应 Commit：`00f66cb` feat: add limited retries for transient LLM failures
+
+落地：非流式 `complete` 对可重试错误（超时 / 网络 / 429 / 5xx）做有限重试；401 等不可重试错误立即失败。测试覆盖首次失败后成功、耗尽重试、401 不重试、`max_retries=0`。
 
 ## 目标
 
@@ -531,7 +549,11 @@ LLM Client 不应负责：
 
 # Task 5：测试、Smoke Test、文档与周末 Review
 
-状态：未开始
+状态：已完成
+
+对应 Commit：`f71d0c4` feat: add llm smoke demo, parser tests, and docs
+
+落地：`README.md` 补充配置与 Smoke / 自动化测试说明；`python -m mini_agent.main` 演示非流式 + 流式；`pytest` 全 Mock，不调用真实 API。
 
 ## 目标
 
@@ -725,23 +747,37 @@ Week 02 明确不实现：
 
 ### 实际完成内容
 
-- 待填写
+- Task 1：`Message` / `MessageRole` / `Usage` / `ChatResponse` / `StreamChunk` 与 `LLMClient` Protocol
+- Task 2：`DeepSeekClient.complete` 非流式请求、状态码映射、`ModelRequestError`、资源关闭与 Mock 测试
+- Task 3：独立 `stream_parser` + `DeepSeekClient.stream` 异步流式输出
+- Task 4：非流式有限重试（可重试 vs 不可重试）及对应测试
+- Task 5：README、入口 Smoke Demo、parser 单测；质量检查全绿；真实 API Smoke Test 已跑通
+
+相关 Commit 序列：`e8ee5e4` → `7244f46` → `1db34fe` → `05615bf` → `00f66cb` → `f71d0c4`（中间另有 `.env.example` / format 小修复）
 
 ### 与计划的差异
 
-- 待填写
+- 实际增加了 `stream_parser.py` 与 `test_models.py`（计划目录示例未列出，符合“按职责拆分”）
+- 异常统一为 `ModelRequestError`，未为每种 HTTP 状态单独建异常类（计划允许）
+- 重试仅实现在非流式 `complete`；`stream` 不做自动重试（流式重试语义更复杂，有意延后）
+- 退避使用 `time.sleep(0)` 占位，未实现真实指数退避；未引入第三方重试库
+- 用户取消（`CancelledError` / Ctrl+C）未单独写测试与特殊分支
+- Smoke 入口是 `python -m mini_agent.main`，未单独创建 `scripts/smoke_test_llm.py`
 
 ### 实际运行的检查
 
-- `pytest`：待填写
-- `ruff check .`：待填写
-- `ruff format --check .`：待填写
-- `mypy src`：待填写
-- 真实 API Smoke Test：待填写
+- `pytest`：33 passed
+- `ruff check .`：通过
+- `ruff format --check .`：通过
+- `mypy src`：通过（10 source files）
+- 真实 API Smoke Test：已通过（`python -m mini_agent.main`，complete + stream 均有真实输出）
 
 ### 已知问题
 
-- 待填写
+- 流式路径无重试；与非流式策略不一致，需在后续文档或代码中显式约定
+- 重试无真实退避间隔，生产环境下可能瞬时打满限流
+- `main.py` 早期曾因跨 event loop 调用 `aclose` 触发 `RuntimeError: Event loop is closed`；当前已改为在同一 `asyncio.run` 内关闭，需注意不要回退该写法
+- 取消信号与流中途断开的系统化测试仍不足
 
 ### 下一项任务
 
