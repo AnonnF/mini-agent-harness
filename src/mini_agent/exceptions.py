@@ -15,3 +15,7 @@ class ModelRequestError(MiniAgentError):
 
 class ToolExecutionError(MiniAgentError):
     """Raised when a tool execution fails."""
+
+
+class ToolRegistryError(MiniAgentError):
+    """Raised when a tool registry fails."""

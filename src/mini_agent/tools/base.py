@@ -1,0 +1,13 @@
+from typing import Protocol
+
+from pydantic import BaseModel
+
+
+class Tool(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def description(self) -> str: ...
+    @property
+    def parameters_model(self) -> type[BaseModel]: ...
+    def execute(self, arguments: BaseModel) -> str: ...
