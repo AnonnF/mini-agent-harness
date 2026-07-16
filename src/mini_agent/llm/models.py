@@ -4,16 +4,21 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from mini_agent.tools.models import ToolCall
+
 
 class MessageRole(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+    TOOL = "tool"
 
 
 class Message(BaseModel):
     role: MessageRole
-    content: str = Field(min_length=1)
+    content: str = ""
+    tool_calls: list[ToolCall] | None = None
+    tool_call_id: str | None = None
 
 
 class Usage(BaseModel):
@@ -23,8 +28,9 @@ class Usage(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    content: str
+    content: str = ""
     usage: Usage | None = None
+    tool_calls: list[ToolCall] = Field(default_factory=list)
 
 
 class StreamChunk(BaseModel):

@@ -6,6 +6,7 @@ Network and vendor errors are wrapped as ModelRequestError.
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import AsyncIterator, Sequence
 
@@ -16,7 +17,9 @@ from mini_agent.config import Settings
 from mini_agent.exceptions import ModelRequestError
 from mini_agent.llm.models import ChatResponse, Message, StreamChunk, Usage
 from mini_agent.llm.stream_parser import parse_sse_line
+from mini_agent.llm.tool_schema import parse_tool_calls, tool_to_openai_tool
 from mini_agent.logging_config import get_logger
+from mini_agent.tools.base import Tool
 
 logger = get_logger(__name__)
 
@@ -62,17 +65,6 @@ class DeepSeekClient:
             async_http_client=async_http_client,
         )
 
-    def _build_request_body(
-        self, messages: Sequence[Message], stream: bool
-    ) -> dict[str, object]:
-        return {
-            "model": self._model,
-            "messages": [
-                {"role": m.role.value, "content": m.content} for m in messages
-            ],
-            "stream": stream,
-        }
-
     def _is_retryable(self, exc: ModelRequestError) -> bool:
         msg = str(exc)
         # allow error messages of 5xx, 429, connection problem
@@ -83,7 +75,11 @@ class DeepSeekClient:
             "Server error",
         }
 
-    def _complete_once(self, messages: Sequence[Message]) -> ChatResponse:
+    def _complete_once(
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[Tool] | None = None,
+    ) -> ChatResponse:
         if not messages:
             raise ModelRequestError("message must not be empty!")
 
@@ -92,7 +88,7 @@ class DeepSeekClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        body = self._build_request_body(messages=messages, stream=False)
+        body = self._build_request_body(messages=messages, stream=False, tools=tools)
 
         logger.info("LLM request started model=%s", self._model)
         start = time.perf_counter()
@@ -115,11 +111,22 @@ class DeepSeekClient:
 
             try:
                 # DeepSeek chat/completions response (OpenAI-compatible):
-                # choices[0].message.content
-                content = data["choices"][0]["message"]["content"]
+                # choices[0].message.content / tool_calls
+                message = data["choices"][0]["message"]
             except (KeyError, IndexError, TypeError):
+                raise ModelRequestError("Invalid response format") from None
+
+            if not isinstance(message, dict):
                 raise ModelRequestError("Invalid response format")
 
+            tool_calls = parse_tool_calls(message.get("tool_calls"))
+
+            content = message.get("content")
+            if content is None:
+                if tool_calls:
+                    content = ""
+                else:
+                    raise ModelRequestError("Invalid response format")
             if not isinstance(content, str):
                 raise ModelRequestError("Invalid response format")
 
@@ -127,7 +134,7 @@ class DeepSeekClient:
             try:
                 usage = Usage.model_validate(usage_data) if usage_data else None
             except ValidationError:
-                raise ModelRequestError("Invalid response format")
+                raise ModelRequestError("Invalid response format") from None
         elif response.status_code == 401:
             logger.warning(
                 "LLM request failed model=%s status=%s elapsed=%.3fs",
@@ -165,14 +172,55 @@ class DeepSeekClient:
             usage.model_dump() if usage else None,
         )
 
-        return ChatResponse(content=content, usage=usage)
+        return ChatResponse(content=content, usage=usage, tool_calls=tool_calls)
 
-    def complete(self, messages: Sequence[Message]) -> ChatResponse:
+    def _message_to_api(self, message: Message) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "role": message.role.value,
+            "content": message.content,
+        }
+        if message.tool_call_id is not None:
+            payload["tool_call_id"] = message.tool_call_id
+        if message.tool_calls:
+            payload["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": json.dumps(tc.arguments),
+                    },
+                }
+                for tc in message.tool_calls
+            ]
+        return payload
+
+    def _build_request_body(
+        self,
+        messages: Sequence[Message],
+        stream: bool,
+        tools: Sequence[Tool] | None = None,
+    ) -> dict[str, object]:
+        body: dict[str, object] = {
+            "model": self._model,
+            "messages": [self._message_to_api(m) for m in messages],
+            "stream": stream,
+        }
+        if tools:
+            body["tools"] = [tool_to_openai_tool(t) for t in tools]
+            body["tool_choice"] = "auto"
+        return body
+
+    def complete(
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[Tool] | None = None,
+    ) -> ChatResponse:
         last_error: ModelRequestError | None = None
 
         for attempt in range(self._max_retries + 1):
             try:
-                return self._complete_once(messages)
+                return self._complete_once(messages, tools=tools)
             except ModelRequestError as exc:
                 if not self._is_retryable(exc) or attempt >= self._max_retries:
                     raise

@@ -1,9 +1,13 @@
+import json
+
 import httpx
 import pytest
+from pydantic import BaseModel, Field
 
 from mini_agent.exceptions import ModelRequestError
 from mini_agent.llm.deepseek_client import DeepSeekClient
 from mini_agent.llm.models import Message, MessageRole
+from mini_agent.tools.models import ToolCall
 
 
 def _make_client(handler, *, max_retries: int = 2) -> DeepSeekClient:
@@ -21,6 +25,27 @@ def _make_client(handler, *, max_retries: int = 2) -> DeepSeekClient:
 
 def _user_message(content: str = "Hi") -> Message:
     return Message(role=MessageRole.USER, content=content)
+
+
+class EchoArgs(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class EchoTool:
+    @property
+    def name(self) -> str:
+        return "echo"
+
+    @property
+    def description(self) -> str:
+        return "Echo text"
+
+    @property
+    def parameters_model(self) -> type[BaseModel]:
+        return EchoArgs
+
+    def execute(self, arguments: BaseModel) -> str:
+        return EchoArgs.model_validate(arguments.model_dump()).text
 
 
 def test_complete_success() -> None:
@@ -44,6 +69,7 @@ def test_complete_success() -> None:
     assert resp.content == "Hello"
     assert resp.usage is not None
     assert resp.usage.total_tokens == 3
+    assert resp.tool_calls == []
 
 
 def test_complete_empty_messages_raises() -> None:
@@ -113,6 +139,14 @@ def test_complete_invalid_json_raises() -> None:
 def test_complete_missing_content_raises() -> None:
     client = _make_client(
         lambda r: httpx.Response(200, json={"choices": [{"message": {}}]})
+    )
+    with pytest.raises(ModelRequestError, match="Invalid response format"):
+        client.complete([_user_message()])
+
+
+def test_complete_non_object_message_raises() -> None:
+    client = _make_client(
+        lambda r: httpx.Response(200, json={"choices": [{"message": []}]})
     )
     with pytest.raises(ModelRequestError, match="Invalid response format"):
         client.complete([_user_message()])
@@ -196,7 +230,7 @@ def test_complete_exhausts_retries_on_500() -> None:
     with pytest.raises(ModelRequestError, match="Server error"):
         client.complete([_user_message()])
 
-    assert calls["n"] == 3  # 1 次首次 + 2 次重试
+    assert calls["n"] == 3
 
 
 def test_complete_max_retries_zero_does_not_retry() -> None:
@@ -210,4 +244,134 @@ def test_complete_max_retries_zero_does_not_retry() -> None:
     with pytest.raises(ModelRequestError, match="Server error"):
         client.complete([_user_message()])
 
-    assert calls["n"] == 1  # 不允许重试：第一次失败即停
+    assert calls["n"] == 1
+
+
+def test_complete_sends_tools_in_request_body() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},
+        )
+
+    client = _make_client(handler)
+    client.complete([_user_message()], tools=[EchoTool()])
+
+    body = captured["body"]
+    assert "tools" in body
+    assert body["tool_choice"] == "auto"
+    assert body["tools"][0]["function"]["name"] == "echo"
+
+
+def test_complete_without_tools_omits_tools_field() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},
+        )
+
+    client = _make_client(handler)
+    client.complete([_user_message()])
+
+    assert "tools" not in captured["body"]
+
+
+def test_complete_parses_tool_call() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "echo",
+                                        "arguments": '{"text": "hi"}',
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ]
+            },
+        )
+
+    client = _make_client(handler)
+    resp = client.complete([_user_message()], tools=[EchoTool()])
+
+    assert resp.content == ""
+    assert len(resp.tool_calls) == 1
+    assert resp.tool_calls[0].id == "call_1"
+    assert resp.tool_calls[0].name == "echo"
+    assert resp.tool_calls[0].arguments == {"text": "hi"}
+
+
+def test_complete_invalid_tool_arguments_json_raises() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "echo",
+                                        "arguments": "{not-json",
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ]
+            },
+        )
+
+    client = _make_client(handler)
+    with pytest.raises(ModelRequestError, match="Invalid tool call arguments JSON"):
+        client.complete([_user_message()], tools=[EchoTool()])
+
+
+def test_complete_sends_tool_result_message() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "done"}}]},
+        )
+
+    messages = [
+        _user_message("list files"),
+        Message(
+            role=MessageRole.ASSISTANT,
+            content="",
+            tool_calls=[ToolCall(id="call_1", name="echo", arguments={"text": "x"})],
+        ),
+        Message(role=MessageRole.TOOL, content="x", tool_call_id="call_1"),
+    ]
+    client = _make_client(handler)
+    client.complete(messages)
+
+    api_messages = captured["body"]["messages"]
+    assert api_messages[-1]["role"] == "tool"
+    assert api_messages[-1]["tool_call_id"] == "call_1"
+    assert api_messages[1]["tool_calls"][0]["id"] == "call_1"
