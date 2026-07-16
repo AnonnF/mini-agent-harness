@@ -19,3 +19,11 @@ class ToolExecutionError(MiniAgentError):
 
 class ToolRegistryError(MiniAgentError):
     """Raised when a tool registry fails."""
+
+
+class MaxAgentStepsExceededError(MiniAgentError):
+    """Raised when the agent reaches max_agent_steps without a final answer."""
+
+
+class InvalidModelResponseError(MiniAgentError):
+    """Raised when the model returns neither text nor tool calls."""
