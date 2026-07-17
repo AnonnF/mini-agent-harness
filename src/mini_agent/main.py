@@ -1,13 +1,24 @@
 """Mini Agent Harness entry point"""
 
-import asyncio
 import sys
+from pathlib import Path
 
+from mini_agent.agent.loop import Agent
 from mini_agent.config import load_settings
-from mini_agent.exceptions import ConfigurationError, ModelRequestError
+from mini_agent.exceptions import (
+    ConfigurationError,
+    MaxAgentStepsExceededError,
+    ModelRequestError,
+)
 from mini_agent.llm.deepseek_client import DeepSeekClient
-from mini_agent.llm.models import Message, MessageRole
+from mini_agent.llm.models import Message
 from mini_agent.logging_config import get_logger, setup_logging
+from mini_agent.tools.list_files import ListFilesTool
+from mini_agent.tools.read_file import ReadFileTool
+from mini_agent.tools.registry import ToolRegistry
+from mini_agent.tools.search_text import SearchTextTool
+
+DEFAULT_PROMPT = "请查看当前项目中的 Python 文件，并判断程序入口在哪里。"
 
 
 async def _stream_demo(client: DeepSeekClient, messages: list[Message]) -> None:
@@ -30,18 +41,34 @@ def main() -> None:
         logger.error("%s", exc)
         sys.exit(1)
 
+    workspace = Path.cwd()
     client = DeepSeekClient.from_settings(settings=settings)
-    messages = [Message(role=MessageRole.USER, content="用一句话介绍你自己")]
+
+    registry = ToolRegistry()
+    registry.register(ListFilesTool(workspace))
+    registry.register(ReadFileTool(workspace))
+    registry.register(SearchTextTool(workspace))
+
+    agent = Agent(
+        llm=client,
+        registry=registry,
+        max_steps=settings.max_agent_steps,
+    )
+
+    prompt = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else DEFAULT_PROMPT
 
     try:
-        print("--- complete ---")
-        # non-streaming
-        resp = client.complete(messages=messages)
-        print(resp.content)
-        # streaming
-        asyncio.run(_stream_demo(client=client, messages=messages))
+        print(f"workspace={workspace}")
+        print(f"prompt={prompt}")
+        print("--- agent ---")
+        result = agent.run(prompt)
+        print(result.final_text)
+        print(f"--- steps={result.steps_used} reason={result.stop_reason} ---")
     except ModelRequestError as exc:
         logger.error("LLM request failed: %s", exc)
+        sys.exit(1)
+    except MaxAgentStepsExceededError as exc:
+        logger.error("%s", exc)
         sys.exit(1)
     finally:
         client.close()
