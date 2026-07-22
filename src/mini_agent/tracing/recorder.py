@@ -32,6 +32,7 @@ class TraceRecorder:
         self._tool_call_count = 0
         self._usage: Usage | None = None
         self._active = False
+        self._last_trace: AgentTrace | None = None
 
     def _require_active(self) -> None:
         if not self._active:
@@ -154,6 +155,7 @@ class TraceRecorder:
             usage=self._usage,
         )
 
+        self._last_trace = trace
         self._active = False
         return trace
 
@@ -195,3 +197,7 @@ class TraceRecorder:
                 "original_length": len(output),
             },
         )
+
+    @property
+    def last_trace(self) -> AgentTrace | None:
+        return self._last_trace
