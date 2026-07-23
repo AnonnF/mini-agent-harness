@@ -51,9 +51,10 @@ class Agent:
         *,
         system_prompt: str | None = None,
         recorder: TraceRecorder | None = None,
+        task_id: str | None = None,
     ) -> AgentResult:
         if recorder is not None:
-            recorder.start(input_text=user_input)
+            recorder.start(input_text=user_input, task_id=task_id)
 
         messages: list[Message] = []
 
