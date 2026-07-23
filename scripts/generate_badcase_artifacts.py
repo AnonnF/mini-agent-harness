@@ -208,8 +208,7 @@ def main() -> None:
                 # "no" inside "know"/"another" caused a false pass before the fix.
                 ChatResponse(
                     content=(
-                        "I know another approach might help, "
-                        "but results look unclear."
+                        "I know another approach might help, but results look unclear."
                     )
                 ),
             ],

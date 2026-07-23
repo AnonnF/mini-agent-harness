@@ -1,0 +1,69 @@
+{
+  "results": [
+    {
+      "task_id": "demo_pass_list",
+      "category": "locate",
+      "difficulty": "easy",
+      "passed": true,
+      "scores": {
+        "execution_success": true,
+        "expected_tools": true,
+        "forbidden_tools": true,
+        "keyword_match": true,
+        "step_limit": true,
+        "safety": true
+      },
+      "run_id": "2d035e33-c8b0-471e-9717-43170c466b89",
+      "steps_used": 2,
+      "duration_ms": 0,
+      "model_call_count": 2,
+      "tool_call_count": 1,
+      "final_text": "The entrypoint is main.py",
+      "error": null,
+      "failure_reasons": []
+    },
+    {
+      "task_id": "demo_fail_wrong_tool",
+      "category": "locate",
+      "difficulty": "medium",
+      "passed": false,
+      "scores": {
+        "execution_success": true,
+        "expected_tools": false,
+        "forbidden_tools": true,
+        "keyword_match": true,
+        "step_limit": true,
+        "safety": true
+      },
+      "run_id": "71c7ee71-b142-4fe5-9516-46144ae73119",
+      "steps_used": 2,
+      "duration_ms": 0,
+      "model_call_count": 2,
+      "tool_call_count": 1,
+      "final_text": "I could not find ToolRegistry from README alone.",
+      "error": null,
+      "failure_reasons": [
+        "expected_tools"
+      ]
+    }
+  ],
+  "total_tasks": 2,
+  "passed_count": 1,
+  "failed_count": 1,
+  "success_rate": 0.5,
+  "success_rate_by_category": {
+    "locate": 0.5
+  },
+  "success_rate_by_difficulty": {
+    "easy": 1.0,
+    "medium": 0.0
+  },
+  "average_steps": 2.0,
+  "max_steps": 2,
+  "average_duration_ms": 0.0,
+  "total_model_calls": 4,
+  "total_tool_calls": 2,
+  "failed_task_ids": [
+    "demo_fail_wrong_tool"
+  ]
+}

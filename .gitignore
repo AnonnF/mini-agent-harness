@@ -15,3 +15,5 @@ evals/results/*
 !evals/results/badcases/**
 !evals/results/controlled_experiment/
 !evals/results/controlled_experiment/**
+!evals/results/demo/
+!evals/results/demo/**
