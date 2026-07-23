@@ -1,0 +1,84 @@
+{
+  "variable_changed": "score_keyword_match matching rule",
+  "baseline_rule": "case-insensitive substring; any keyword",
+  "updated_rule": "word-boundary for plain tokens; substring for path/phrase tokens; any keyword",
+  "same_task_set": [
+    "bc1_repeated_list_files",
+    "bc2_wrong_tool_choice",
+    "bc3_keyword_false_positive"
+  ],
+  "bc3_final_text": "I know another approach might help, but results look unclear.",
+  "bc3_keyword_match_baseline": true,
+  "bc3_keyword_match_updated": false,
+  "updated_results": [
+    {
+      "task_id": "bc1_repeated_list_files",
+      "passed": true,
+      "failure_reasons": [],
+      "scores": {
+        "execution_success": true,
+        "expected_tools": true,
+        "forbidden_tools": true,
+        "keyword_match": true,
+        "step_limit": true,
+        "safety": true
+      }
+    },
+    {
+      "task_id": "bc2_wrong_tool_choice",
+      "passed": false,
+      "failure_reasons": [
+        "expected_tools"
+      ],
+      "scores": {
+        "execution_success": true,
+        "expected_tools": false,
+        "forbidden_tools": true,
+        "keyword_match": true,
+        "step_limit": true,
+        "safety": true
+      }
+    },
+    {
+      "task_id": "bc3_keyword_false_positive",
+      "passed": false,
+      "failure_reasons": [
+        "keyword_match"
+      ],
+      "scores": {
+        "execution_success": true,
+        "expected_tools": true,
+        "forbidden_tools": true,
+        "keyword_match": false,
+        "step_limit": true,
+        "safety": true
+      }
+    }
+  ],
+  "baseline_results_notes": {
+    "bc1": {
+      "passed": true,
+      "failure_reasons": []
+    },
+    "bc2": {
+      "passed": false,
+      "failure_reasons": [
+        "expected_tools"
+      ]
+    },
+    "bc3": {
+      "passed": true,
+      "failure_reasons": [],
+      "false_positive": true
+    }
+  },
+  "improvement": {
+    "bc3_false_positive_removed": true,
+    "bc1_unchanged_pass": true,
+    "bc2_unchanged_fail_expected_tools": true
+  },
+  "regression": {
+    "true_positive_no_matches_found": true,
+    "true_positive_zero_matches": true
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "task": {
+    "id": "bc2_wrong_tool_choice",
+    "name": "Wrong tool choice",
+    "category": "locate",
+    "difficulty": "medium",
+    "prompt": "Find where ToolRegistry is defined using search.",
+    "workspace_fixture": "sample_repository",
+    "expected_tools": [
+      "search_text"
+    ],
+    "forbidden_tools": [],
+    "expected_keywords": [
+      "registry.py",
+      "ToolRegistry"
+    ],
+    "max_steps": 6,
+    "timeout_seconds": 60.0,
+    "notes": ""
+  },
+  "error": null,
+  "passed": false,
+  "scores": {
+    "execution_success": true,
+    "expected_tools": false,
+    "forbidden_tools": true,
+    "keyword_match": true,
+    "step_limit": true,
+    "safety": true
+  },
+  "failure_reasons": [
+    "expected_tools"
+  ],
+  "final_text": "It seems related to tools, but I could not locate ToolRegistry.",
+  "trace": {
+    "run_id": "022bc97f-1b07-44c4-b7d7-508c38c6e8df",
+    "task_id": "bc2_wrong_tool_choice",
+    "input_text": "Find where ToolRegistry is defined using search.",
+    "started_at": "2026-07-23T10:17:31.655159Z",
+    "finished_at": "2026-07-23T10:17:31.655638Z",
+    "duration_ms": 0,
+    "events": [
+      {
+        "sequence": 0,
+        "step": 1,
+        "event_type": "model_request",
+        "started_at": "2026-07-23T10:17:31.655165Z",
+        "finished_at": "2026-07-23T10:17:31.655165Z",
+        "success": true,
+        "metadata": {}
+      },
+      {
+        "sequence": 1,
+        "step": 1,
+        "event_type": "model_response",
+        "started_at": "2026-07-23T10:17:31.655171Z",
+        "finished_at": "2026-07-23T10:17:31.655171Z",
+        "success": true,
+        "metadata": {
+          "has_tool_calls": true,
+          "content_preview": ""
+        }
+      },
+      {
+        "sequence": 2,
+        "step": 1,
+        "event_type": "tool_call",
+        "started_at": "2026-07-23T10:17:31.655180Z",
+        "finished_at": "2026-07-23T10:17:31.655180Z",
+        "success": true,
+        "metadata": {
+          "tool_name": "read_file",
+          "tool_call_id": "c1",
+          "arguments_preview": "{'path': 'README.md'}"
+        }
+      },
+      {
+        "sequence": 3,
+        "step": 1,
+        "event_type": "tool_result",
+        "started_at": "2026-07-23T10:17:31.655506Z",
+        "finished_at": "2026-07-23T10:17:31.655506Z",
+        "success": true,
+        "metadata": {
+          "tool_call_id": "c1",
+          "output_preview": "# Sample Repository\n\nA tiny fixed fixture used by Mini Agent Harness evaluation tasks.\n\nEntry point: `src/main.py`\n",
+          "original_length": 115
+        }
+      },
+      {
+        "sequence": 4,
+        "step": 2,
+        "event_type": "model_request",
+        "started_at": "2026-07-23T10:17:31.655509Z",
+        "finished_at": "2026-07-23T10:17:31.655509Z",
+        "success": true,
+        "metadata": {}
+      },
+      {
+        "sequence": 5,
+        "step": 2,
+        "event_type": "model_response",
+        "started_at": "2026-07-23T10:17:31.655513Z",
+        "finished_at": "2026-07-23T10:17:31.655513Z",
+        "success": true,
+        "metadata": {
+          "has_tool_calls": true,
+          "content_preview": ""
+        }
+      },
+      {
+        "sequence": 6,
+        "step": 2,
+        "event_type": "tool_call",
+        "started_at": "2026-07-23T10:17:31.655518Z",
+        "finished_at": "2026-07-23T10:17:31.655518Z",
+        "success": true,
+        "metadata": {
+          "tool_name": "read_file",
+          "tool_call_id": "c2",
+          "arguments_preview": "{'path': 'src/main.py'}"
+        }
+      },
+      {
+        "sequence": 7,
+        "step": 2,
+        "event_type": "tool_result",
+        "started_at": "2026-07-23T10:17:31.655627Z",
+        "finished_at": "2026-07-23T10:17:31.655627Z",
+        "success": true,
+        "metadata": {
+          "tool_call_id": "c2",
+          "output_preview": "\"\"\"Sample application entry point.\"\"\"\n\nfrom config import Settings\nfrom registry import ToolRegistry\n\n\ndef main() -> None:\n    settings = Settings()\n    registry = ToolRegistry()\n    print(f\"starting app model={settings.model_name}\")\n    print(f\"registered tools={registry.list_names()}\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+          "original_length": 329
+        }
+      },
+      {
+        "sequence": 8,
+        "step": 3,
+        "event_type": "model_request",
+        "started_at": "2026-07-23T10:17:31.655629Z",
+        "finished_at": "2026-07-23T10:17:31.655629Z",
+        "success": true,
+        "metadata": {}
+      },
+      {
+        "sequence": 9,
+        "step": 3,
+        "event_type": "model_response",
+        "started_at": "2026-07-23T10:17:31.655633Z",
+        "finished_at": "2026-07-23T10:17:31.655633Z",
+        "success": true,
+        "metadata": {
+          "has_tool_calls": false,
+          "content_preview": "It seems related to tools, but I could not locate ToolRegistry."
+        }
+      },
+      {
+        "sequence": 10,
+        "step": 3,
+        "event_type": "agent_completed",
+        "started_at": "2026-07-23T10:17:31.655638Z",
+        "finished_at": "2026-07-23T10:17:31.655638Z",
+        "success": true,
+        "metadata": {
+          "final_output_preview": "It seems related to tools, but I could not locate ToolRegistry."
+        }
+      }
+    ],
+    "final_output": "It seems related to tools, but I could not locate ToolRegistry.",
+    "success": true,
+    "termination_reason": "final_answer",
+    "total_steps": 3,
+    "model_call_count": 3,
+    "tool_call_count": 2,
+    "usage": null
+  }
+}

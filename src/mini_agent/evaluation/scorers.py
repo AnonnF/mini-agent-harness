@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from mini_agent.agent.models import AgentResult
 from mini_agent.evaluation.models import (
     EvaluationTask,
@@ -64,6 +66,23 @@ def score_forbidden_tools(
     return used.isdisjoint(set(task.forbidden_tools))
 
 
+def _keyword_present(text: str, keyword: str) -> bool:
+    """Match keywords without naive short-token substring false positives.
+
+    - Multi-word phrases and path-like tokens (containing `.` `_` `/` `-`)
+      use case-insensitive substring match.
+    - Plain single tokens use word-boundary match so ``no`` does not match
+      inside ``another`` or ``know``.
+    """
+    lowered = text.lower()
+    kw = keyword.lower()
+    if not kw:
+        return False
+    if any(ch in kw for ch in (" ", ".", "_", "/", "-")):
+        return kw in lowered
+    return re.search(rf"\b{re.escape(kw)}\b", lowered) is not None
+
+
 def score_keyword_match(
     task: EvaluationTask,
     *,
@@ -71,8 +90,9 @@ def score_keyword_match(
 ) -> bool:
     if not task.expected_keywords:
         return True
-    lowered = final_text.lower()
-    return any(keyword.lower() in lowered for keyword in task.expected_keywords)
+    return any(
+        _keyword_present(final_text, keyword) for keyword in task.expected_keywords
+    )
 
 
 def score_step_limit(

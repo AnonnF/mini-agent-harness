@@ -1,0 +1,27 @@
+[
+  {
+    "file": "bc1_repeated_list_files.json",
+    "task_id": "bc1_repeated_list_files",
+    "passed": true,
+    "failure_reasons": [],
+    "run_id": "29c36266-8e2d-4087-b1e4-c5f890601d59"
+  },
+  {
+    "file": "bc2_wrong_tool_choice.json",
+    "task_id": "bc2_wrong_tool_choice",
+    "passed": false,
+    "failure_reasons": [
+      "expected_tools"
+    ],
+    "run_id": "022bc97f-1b07-44c4-b7d7-508c38c6e8df"
+  },
+  {
+    "file": "bc3_keyword_false_positive.json",
+    "task_id": "bc3_keyword_false_positive",
+    "passed": false,
+    "failure_reasons": [
+      "keyword_match"
+    ],
+    "run_id": "d01c1759-9d65-496f-b007-2bb632de7b51"
+  }
+]

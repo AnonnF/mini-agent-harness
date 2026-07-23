@@ -11,3 +11,7 @@ dist/
 .idea/
 evals/results/*
 !evals/results/.gitkeep
+!evals/results/badcases/
+!evals/results/badcases/**
+!evals/results/controlled_experiment/
+!evals/results/controlled_experiment/**

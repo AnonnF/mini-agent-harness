@@ -1,0 +1,132 @@
+{
+  "task": {
+    "id": "bc3_keyword_false_positive",
+    "name": "Keyword false positive",
+    "category": "failure",
+    "difficulty": "easy",
+    "prompt": "Search for definitely_missing_function_xyz.",
+    "workspace_fixture": "sample_repository",
+    "expected_tools": [
+      "search_text"
+    ],
+    "forbidden_tools": [],
+    "expected_keywords": [
+      "no",
+      "not found",
+      "0"
+    ],
+    "max_steps": 5,
+    "timeout_seconds": 60.0,
+    "notes": ""
+  },
+  "error": null,
+  "passed": false,
+  "scores": {
+    "execution_success": true,
+    "expected_tools": true,
+    "forbidden_tools": true,
+    "keyword_match": false,
+    "step_limit": true,
+    "safety": true
+  },
+  "failure_reasons": [
+    "keyword_match"
+  ],
+  "final_text": "I know another approach might help, but results look unclear.",
+  "trace": {
+    "run_id": "d01c1759-9d65-496f-b007-2bb632de7b51",
+    "task_id": "bc3_keyword_false_positive",
+    "input_text": "Search for definitely_missing_function_xyz.",
+    "started_at": "2026-07-23T10:17:31.656065Z",
+    "finished_at": "2026-07-23T10:17:31.656413Z",
+    "duration_ms": 0,
+    "events": [
+      {
+        "sequence": 0,
+        "step": 1,
+        "event_type": "model_request",
+        "started_at": "2026-07-23T10:17:31.656067Z",
+        "finished_at": "2026-07-23T10:17:31.656067Z",
+        "success": true,
+        "metadata": {}
+      },
+      {
+        "sequence": 1,
+        "step": 1,
+        "event_type": "model_response",
+        "started_at": "2026-07-23T10:17:31.656071Z",
+        "finished_at": "2026-07-23T10:17:31.656071Z",
+        "success": true,
+        "metadata": {
+          "has_tool_calls": true,
+          "content_preview": ""
+        }
+      },
+      {
+        "sequence": 2,
+        "step": 1,
+        "event_type": "tool_call",
+        "started_at": "2026-07-23T10:17:31.656076Z",
+        "finished_at": "2026-07-23T10:17:31.656076Z",
+        "success": true,
+        "metadata": {
+          "tool_name": "search_text",
+          "tool_call_id": "c1",
+          "arguments_preview": "{'query': 'definitely_missing_function_xyz', 'path': '.'}"
+        }
+      },
+      {
+        "sequence": 3,
+        "step": 1,
+        "event_type": "tool_result",
+        "started_at": "2026-07-23T10:17:31.656404Z",
+        "finished_at": "2026-07-23T10:17:31.656404Z",
+        "success": true,
+        "metadata": {
+          "tool_call_id": "c1",
+          "output_preview": "No matches found",
+          "original_length": 16
+        }
+      },
+      {
+        "sequence": 4,
+        "step": 2,
+        "event_type": "model_request",
+        "started_at": "2026-07-23T10:17:31.656407Z",
+        "finished_at": "2026-07-23T10:17:31.656407Z",
+        "success": true,
+        "metadata": {}
+      },
+      {
+        "sequence": 5,
+        "step": 2,
+        "event_type": "model_response",
+        "started_at": "2026-07-23T10:17:31.656410Z",
+        "finished_at": "2026-07-23T10:17:31.656410Z",
+        "success": true,
+        "metadata": {
+          "has_tool_calls": false,
+          "content_preview": "I know another approach might help, but results look unclear."
+        }
+      },
+      {
+        "sequence": 6,
+        "step": 2,
+        "event_type": "agent_completed",
+        "started_at": "2026-07-23T10:17:31.656413Z",
+        "finished_at": "2026-07-23T10:17:31.656413Z",
+        "success": true,
+        "metadata": {
+          "final_output_preview": "I know another approach might help, but results look unclear."
+        }
+      }
+    ],
+    "final_output": "I know another approach might help, but results look unclear.",
+    "success": true,
+    "termination_reason": "final_answer",
+    "total_steps": 2,
+    "model_call_count": 2,
+    "tool_call_count": 1,
+    "usage": null
+  }
+}

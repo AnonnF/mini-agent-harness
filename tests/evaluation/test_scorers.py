@@ -116,6 +116,20 @@ def test_keyword_match_any() -> None:
     assert score_keyword_match(task, final_text="nothing useful") is False
 
 
+def test_keyword_match_rejects_short_token_false_positive() -> None:
+    task = _task(expected_keywords=["no", "not found", "0"])
+    # "no" appears inside "know" / "another" but should not count.
+    assert (
+        score_keyword_match(
+            task,
+            final_text="I know another approach might help, but results look unclear.",
+        )
+        is False
+    )
+    assert score_keyword_match(task, final_text="no matches found") is True
+    assert score_keyword_match(task, final_text="Found 0 matches") is True
+
+
 def test_step_limit() -> None:
     task = _task(max_steps=3)
     assert score_step_limit(task, steps_used=3) is True
