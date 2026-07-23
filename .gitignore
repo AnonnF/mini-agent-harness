@@ -2,9 +2,12 @@
 __pycache__/
 *.py[cod]
 .env
+!evals/fixtures/**/.env
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
 dist/
 *.egg-info/
 .idea/
+evals/results/*
+!evals/results/.gitkeep

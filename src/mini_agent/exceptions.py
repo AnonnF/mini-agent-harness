@@ -27,3 +27,7 @@ class MaxAgentStepsExceededError(MiniAgentError):
 
 class InvalidModelResponseError(MiniAgentError):
     """Raised when the model returns neither text nor tool calls."""
+
+
+class EvaluationError(MiniAgentError):
+    """Raised when evaluation tasks or fixtures are invalid."""
